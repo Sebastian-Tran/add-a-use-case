@@ -1494,7 +1494,7 @@ Details:
 **Business Rules:** BR-student-lifecycle, BR-section-scoped-access, BR-submission-owed, BR-team-scoped-access
 
 **Associated Information:**
-- Consequences shown in the warning (step 4), as stated by BR-student-lifecycle: the student will no longer be able to log in or submit weekly activity reports and peer evaluations; she stays on her team and her previously submitted work is kept; her teammates will no longer evaluate her, and peer evaluation reports will show her only for the weeks before this week; she will no longer receive submission reminders (BR-submission-owed). The account can be reactivated later (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete.
+- Consequences shown in the warning (step 4), as stated by BR-student-lifecycle: the student will no longer be able to log in or submit weekly activity reports and peer evaluations; she stays on her team and her previously submitted work is kept; her teammates will no longer evaluate her, and the course section's peer evaluation report will show her only for the weeks before this week; she will no longer receive submission reminders (BR-submission-owed). The account can be reactivated later (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete.
 - Deactivation date: the system records the date on which step 6 occurs. The week that date falls in is the first week in which she is no longer an active teammate.
 - A student who is logged in when she is deactivated: the system refuses her next request and every request after it, even though she logged in with valid credentials, and she is returned to the login page (FR-SEC-active-account). Her deactivation does not wait for her login to expire.
 - The system sends the student no notification of her deactivation.
@@ -2366,7 +2366,7 @@ Report generating algorithm: For each individual criterion score (e.g., Quality 
 
 **Priority:** High
 **Frequency of Use:** Approximately 2 users, average of 1 usage per week.
-**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation)
+**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation), BR-student-lifecycle (which weeks show a deactivated student)
 
 **Associated Information:**
 
@@ -2386,6 +2386,8 @@ An example of the generated report:
 | Lily Fisher | … | … | … | … |
 
 The report shall show who did not turn in the peer evaluation for that week, meaning the students who owe it (BR-submission-owed).
+
+Students included: every student of the course section who is on a team, except that a deactivated student is shown only for weeks before the week of her deactivation; for that week and later she is omitted (BR-student-lifecycle).
 
 Report generating algorithm: How to compute the peer evaluation grade for a student? Each student receives multiple peer evaluations from her teammates every week. First, obtain the peer evaluations received by a student for that week. For each peer evaluation, compute a total score by adding up the individual criterion scores. Then compute the average of the total scores across the peer evaluations. For example, John Doe receives two peer evaluations from Tim Smith and Lily Fisher, respectively. Tim Smith gives the following scores based on the rubric: 10, 9, 10, 9, 10, 10. So the total score given by Tim is 58. Lily Fisher gives the following scores based on the rubric: 5, 5, 10, 10, 10, 10. So the total score given by Tim is 50. The grade that John Doe receives that week is (58 + 50) / 2 = 54.
 

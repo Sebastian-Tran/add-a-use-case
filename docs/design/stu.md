@@ -135,7 +135,7 @@ Delta to the SRS Business Domain Model: `student.deactivated_on DATE NULL` (`V7_
 | T1 | Main success scenario | integration | the course section's instructor deactivates an active student: `SUCCESS`, `enabled` false, team unchanged, `deactivatedOn` is the clock's date |
 | T2 | Main success scenario | unit (`StudentServiceTest`) | `deactivateStudent` sets `enabled` false and the date from a fixed `Clock`, and leaves the team unchanged |
 | T3 | Main success scenario, course admin | integration | the course admin of the student's course, not assigned to her course section, may deactivate her |
-| T4 | 3a | manual E2E | the Deactivate button is absent on an inactive student's row |
+| T4 | 3a | manual E2E | the Deactivate button is absent from an inactive student's details dialog (`EditStudentForm.vue`) |
 | T5 | 5a | manual E2E | Cancel in the dialog sends no request, and the student stays active |
 | T6 | 6a | unit + integration | a second deactivation returns `INVALID_ARGUMENT`, and `deactivatedOn` is unchanged |
 | T7 | 6b | integration | an instructor not assigned to her course section gets 403; the student herself gets 403; an unknown id gets 403 |

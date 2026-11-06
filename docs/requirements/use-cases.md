@@ -1482,12 +1482,9 @@ Details:
 - **6a. The student was deactivated by someone else after step 2** (e.g., in another browser tab):
   - 6a1. The system does not deactivate her again, leaves her recorded deactivation date unchanged, and informs the course admin or instructor that this student is already deactivated.
   - 6a2. Use case ends.
-- **6b. The user is neither the course admin of the student's course nor an instructor assigned to the student's course section:**
-  - 6b1. The system refuses the deactivation, leaves the student's account unchanged, and informs the user that she has no permission to deactivate this student (BR-student-lifecycle, BR-section-scoped-access).
+- **6b. The user is neither the course admin of the student's course nor an instructor assigned to the student's course section, or the student no longer exists** (e.g., she was deleted after step 2):
+  - 6b1. The system refuses the deactivation, leaves every account unchanged, and informs the user that she has no permission to deactivate this student, without revealing whether the student exists (BR-student-lifecycle, BR-section-scoped-access).
   - 6b2. Use case ends.
-- **6c. The student no longer exists** (e.g., she was deleted after step 2):
-  - 6c1. The system informs the course admin or instructor that the student could not be found.
-  - 6c2. Use case ends.
 
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.

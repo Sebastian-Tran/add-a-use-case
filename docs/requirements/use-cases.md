@@ -1491,7 +1491,7 @@ Details:
 **Business Rules:** BR-student-lifecycle, BR-section-scoped-access, BR-submission-owed, BR-team-scoped-access
 
 **Associated Information:**
-- Consequences shown in the warning (step 4), as stated by BR-student-lifecycle: the student will no longer be able to log in or submit weekly activity reports and peer evaluations; she stays on her team and her previously submitted work is kept; her teammates will no longer evaluate her, and the course section's peer evaluation report will show her only for the weeks before this week; she will no longer receive submission reminders (BR-submission-owed). The account can be reactivated later (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete.
+- Consequences shown in the warning (step 4), as stated by BR-student-lifecycle: the student will no longer be able to log in or submit weekly activity reports and peer evaluations; she stays on her team and her previously submitted work is kept; her teammates may still evaluate her for last week until its submission window closes but not for this week or later, and the course section's peer evaluation report will show her only for the weeks before this week; she will no longer receive submission reminders (BR-submission-owed). The account can be reactivated later (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete.
 - Deactivation date: the system records the date on which step 6 occurs. The week that date falls in is the first week in which she is no longer an active teammate.
 - A student who is logged in when she is deactivated: the system refuses her next request and every request after it, even though she logged in with valid credentials, and she is returned to the login page (FR-SEC-active-account). Her deactivation does not wait for her login to expire.
 - The system sends the student no notification of her deactivation.
@@ -2220,9 +2220,9 @@ Report generating algorithm: N/A
 
 **Main Success Scenario:**
 1. The student indicates to submit a peer evaluation for the previous week.
-2. The system asks the student to provide peer evaluations for every active member of her team (BR-student-lifecycle).
+2. The system asks the student to provide peer evaluations for every member of her team who may be evaluated for that week, meaning every member except one deactivated in or before that week (BR-student-lifecycle).
 3. See the "Details" defined in the Associated Information of this use case.
-4. The student evaluates each active team member (self included) and confirms that she has finished.
+4. The student evaluates each listed team member (self included) and confirms that she has finished.
 5. The system validates the student's inputs according to the "Details" defined in the Associated Information of this use case.
 6. The system displays the details of the peer evaluation and asks the student to confirm the evaluation and submission.
 7. The system notes that a submitted peer evaluation remains editable while its submission window is open; the student may re-submit it to update it until the window closes (BR-evaluation-editable-until-close, BR-evaluation-submission-window).
@@ -2243,18 +2243,18 @@ Report generating algorithm: N/A
 - **4a. Input validation rule violation:**
   - 4a1. The system alerts the student that an input validation rule is violated and displays the nature and location of the error.
   - 4a2. The student corrects the mistake and returns to step 4 of the normal flow.
-- **5a. A teammate being evaluated is deactivated** (e.g., she was deactivated after step 2):
-  - 5a1. The system does not accept the peer evaluation of that teammate and informs the student that a deactivated teammate is not evaluated (BR-student-lifecycle).
+- **5a. A teammate being evaluated was deactivated in or before the evaluated week** (e.g., the student submits an evaluation of her directly, bypassing the list in step 2):
+  - 5a1. The system does not accept the peer evaluation of that teammate and informs the student that a teammate deactivated in or before that week is not evaluated for it (BR-student-lifecycle).
   - 5a2. The student returns to step 2 of the normal flow, which no longer lists that teammate.
 
 **Priority:** High
 **Frequency of Use:** Approximately 35-40 users, 1 usage per week.
-**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment, BR-student-lifecycle (a deactivated teammate is not evaluated)
+**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment, BR-student-lifecycle (a teammate deactivated in or before the evaluated week is not evaluated)
 
 **Associated Information:**
 
 Details:
-- Every active team member MUST be evaluated; a deactivated teammate is not listed (BR-student-lifecycle).
+- Every listed team member MUST be evaluated; a teammate deactivated in or before the evaluated week is not listed (BR-student-lifecycle).
 - Scores MUST be integers.
 
 Example (each team member, self included, is evaluated on every rubric criterion):

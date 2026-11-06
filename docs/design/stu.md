@@ -55,7 +55,8 @@ classDiagram
 | Active check on every request | new `security/ActiveAccountJwtValidator.java`, wired into `SecurityConfiguration.jwtDecoder()` | new, shared trunk |
 | Peer evaluation | `evaluation/EvaluationService.java` | changed guard and report filter |
 | Reminders | `notification/SubmissionStatusService.findOwedItems` already filters `isEnabled()` | reused, unchanged |
-| Frontend | `apis/student` (`deactivateStudent`), `pages/students/Students.vue` (Deactivate button + `ElMessageBox.confirm`), `pages/students/EditStudentForm.vue` (Status item removed), the peer-evaluation submission page (lists only `enabled` teammates) | changed |
+| Frontend | `apis/student` (`deactivateStudent`); `pages/students/EditStudentForm.vue`, the student-details dialog that realizes UC-STU-view-student, loses its Status item and gains a Deactivate button with `ElMessageBox.confirm`, shown only while `enabled`; `Students.vue` refreshes the row afterwards; the peer-evaluation submission page lists a teammate unless `deactivatedWeek` ≤ the evaluated week | changed |
+| DTO | `student/dto/StudentDto` + `StudentToStudentDtoConverter` gain `deactivatedWeek` (week key or null), derived with `WeekKeys.of(deactivatedOn)` so the SPA does no date arithmetic | changed |
 
 ## **Sequence**
 
@@ -64,15 +65,15 @@ classDiagram
 ```mermaid
 sequenceDiagram
   actor I as Instructor or course admin
-  participant SPA as Students.vue
+  participant SPA as EditStudentForm.vue (student details)
   participant SC as SecurityConfiguration rule
   participant C as StudentController
   participant S as StudentService
   participant DB as MySQL
-  I->>SPA: Deactivate on an active student's row (step 3; not offered when inactive, 3a)
+  I->>SPA: Deactivate in the student's details (step 3; not offered when inactive, 3a)
   SPA->>I: Warning with the consequences, asks to confirm (step 4)
   alt Cancel (5a)
-    SPA-->>I: Dialog closes, no request sent
+    SPA-->>I: Confirmation closes, details stay open, no request sent
   else Confirm (step 5)
     SPA->>SC: PUT /students/{studentId}/deactivation
     SC-->>SPA: 403 No permission (6b: not her section instructor or course admin, or unknown id)
@@ -104,7 +105,8 @@ sequenceDiagram
 |---|---|---|---|---|
 | `PUT /students/{studentId}/deactivation` | instructor assigned to the student's course section, or course admin of her course; never the student herself | path id only, no body | `SUCCESS`, the updated student (`enabled` false) | 6a: `INVALID_ARGUMENT` "This student is already deactivated."; 6b: 403 "No permission." |
 | every authenticated route | — | bearer JWT whose user is deactivated or gone | — | 401 (FR-SEC-active-account) |
-| `POST /evaluations` (changed) | student | an evaluatee who is deactivated | — | UC-EVA-submit-evaluation 5a: `INVALID_ARGUMENT` "A deactivated teammate is not evaluated." |
+| `POST /evaluations` (changed; one evaluatee per request) | student | an evaluatee whose deactivation week ≤ the evaluated week | — | UC-EVA-submit-evaluation 5a: `INVALID_ARGUMENT` "A teammate deactivated in or before that week is not evaluated for it." |
+| `PUT /evaluations/{evaluationId}` (changed) | evaluator | same condition on the stored evaluation's week and evaluatee | — | same as above |
 | `GET /evaluations/sections/{sectionId}/week/{week}` (changed) | unchanged | unchanged | omits a student whose deactivation week is on or before `week` | — |
 | `PUT /students/{studentId}` (changed) | unchanged | `enabled` is ignored | unchanged | — |
 
@@ -116,6 +118,11 @@ sequenceDiagram
 - **She stays on her team, and the system records `deactivatedOn` as a date from the injected `Clock`.** The report week is derived from it with `system/WeekKeys`. Rejected: removing her from the team, because `Team.removeStudent` nulls `Student.team`, which drops every past week from the report and orphans her work from her team. Rejected: storing a week key, because the date is the fact and the week is derived from it. The column lives on `Student` only, because instructors don't need it yet.
 - **Deactivating an already-deactivated student is an error and keeps the original date.** Rejected: idempotent success, because overwriting the date would shift which weeks she appears in, and an error tells a stale page that it is stale.
 - **Authorization is a route rule (403); "already deactivated" is a service check.** The service check names the violation, following the OI-49 precedent for domain preconditions.
+
+- **Weeks and the date.** `deactivatedOn = LocalDate.now(clock)`, with the injected `Clock` in `app.timezone` like every other week computation. Her **deactivation week** is `WeekKeys.of(deactivatedOn)`, an ISO week starting on Monday, and week keys compare as strings within the `YYYY-Www` format. Every rule uses the same comparison, `week >= deactivationWeek`: the report omits her for that `week`, and an evaluation of her for that `week` is refused. Because the guard compares the **evaluated** week, not today, teammates can still evaluate her for the week before her deactivation while its window is open (BR-student-lifecycle). Rejected: blocking every evaluation of her from the date on, because the week before her deactivation would then be left half-evaluated. BR-submission-owed still drops her from who is owed at once, so a teammate who skips her that last week is not reminded. That follows the rule as written and is accepted.
+- **Course admin resolution.** `isCurrentUserCourseAdminOfStudentCourse` compares the caller's id with `student.section.course.courseAdmin.id`. It is not a role check, so the `admin > instructor` role hierarchy cannot admit the course admin of a different course. `StudentInstructorAuthorizationManager` already compares ids for the same reason.
+- **What the user sees on refusal.** On 6a the SPA shows the `Result` message as an error toast and keeps the details open. On 6b the shared Axios instance's 403 handling applies, and its page reveals nothing about whether the student exists. A fresh login by a deactivated student gets the existing `AccountStatusException` response, unchanged.
+- **Edge cases that need no special code:** a student on no team may be deactivated, and her team simply stays null. Two simultaneous deactivations: the second meets 6a or writes the same date, so last write wins and no `@Version` is needed. The migration takes the next free Flyway number (V7 at the time of design).
 
 ## **Data model**
 
@@ -133,9 +140,10 @@ Delta to the SRS Business Domain Model: `student.deactivated_on DATE NULL` (`V7_
 | T6 | 6a | unit + integration | a second deactivation returns `INVALID_ARGUMENT`, and `deactivatedOn` is unchanged |
 | T7 | 6b | integration | an instructor not assigned to her course section gets 403; the student herself gets 403; an unknown id gets 403 |
 | T8 | Associated Information: logged-in student (FR-SEC-active-account) | integration | a token obtained before deactivation is refused with 401 on the next request, and a fresh login is refused |
-| T9 | BR-student-lifecycle: not evaluated (UC-EVA-submit-evaluation 5a) | unit (`EvaluationServiceTest`) + integration | an evaluation of a deactivated evaluatee is rejected |
-| T10 | BR-student-lifecycle: report weeks | unit (`EvaluationServiceTest`) | a student deactivated in week W appears in the report for week W-1 and is omitted from week W |
-| T11 | Old path removed | integration | `PUT /students/{studentId}` with `enabled` false leaves her active |
+| T9 | UC-EVA-submit-evaluation 5a | unit (`EvaluationServiceTest`) + integration | an evaluation of a teammate whose deactivation week is the evaluated week is rejected, on both add and update |
+| T10 | BR-student-lifecycle: last week finishes | unit (`EvaluationServiceTest`) | deactivated in week W, an evaluation of her for week W-1, submitted during week W, is accepted |
+| T11 | BR-student-lifecycle: report weeks | unit (`EvaluationServiceTest`) | deactivated in week W: the report for W-1 includes her, and the report for W omits her |
+| T12 | Old path removed | integration | `PUT /students/{studentId}` with `enabled` false leaves her active |
 
 ## **Reuse & cross-cutting**
 

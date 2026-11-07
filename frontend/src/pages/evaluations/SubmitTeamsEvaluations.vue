@@ -182,7 +182,10 @@ onMounted(async () => {
 async function loadStudents() {
   // On the back end, the page number starts from 0, so subtract 1 here
   const result: FindStudentByTeamIdResponse = await findStudentsByTeamId(teamId.value)
-  students.value = result.data
+  // A teammate deactivated in or before the evaluated week is not evaluated for it (BR-student-lifecycle)
+  students.value = result.data.filter(
+    (student) => !student.deactivatedWeek || student.deactivatedWeek > previousWeek.value
+  )
 }
 
 // Load criteria information

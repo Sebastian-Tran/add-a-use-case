@@ -126,7 +126,7 @@ sequenceDiagram
 
 ## **Data model**
 
-Delta to the SRS Business Domain Model: `student.deactivated_on DATE NULL` (`V7__student_deactivated_on.sql`). It is null for every active student. A student disabled before this migration also keeps null, so she appears in the report for every week.
+Delta to the SRS Business Domain Model: `Student.deactivatedOn`, stored as `peer_evaluation_user.deactivated_on DATE NULL` (`V7__student_deactivated_on.sql`), because students and instructors share that table through single-table inheritance; only `Student` maps it. It is null for every active student and every instructor. A student disabled before this migration also keeps null, so she appears in the report for every week.
 
 ## **Tests**
 

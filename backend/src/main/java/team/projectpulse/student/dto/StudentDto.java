@@ -16,5 +16,8 @@ public record StudentDto(Integer id,
                          Integer sectionId,
                          String sectionName,
                          Integer teamId,
-                         String teamName) {
+                         String teamName,
+                         // Her deactivation week as a week key, or null while she is active. Derived on the server so
+                         // the SPA does no date arithmetic; it is never read back from a request.
+                         String deactivatedWeek) {
 }

@@ -13,7 +13,9 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ActiveAccountJwtValidatorTest {
@@ -57,6 +59,11 @@ class ActiveAccountJwtValidatorTest {
 
     @Test
     void testTokenWithoutUserIdIsRefused() {
+        // Any lookup would find an active account, so only the missing-userId check can refuse this token. Without this
+        // stub the mock's default answer (Optional.empty()) refused it anyway, and the test passed with the check deleted.
+        // lenient(): the validator under test never reaches the repository, which strict stubbing would otherwise reject.
+        lenient().when(this.userRepository.findById(any())).thenReturn(Optional.of(new Student("john", "John", "Smith", "j.smith@abc.edu", "123456", true, "student")));
+
         assertThat(this.validator.validate(tokenFor(null)).hasErrors()).isTrue();
     }
 

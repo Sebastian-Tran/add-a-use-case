@@ -253,6 +253,25 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("Updating a student no longer changes whether her account is active (stu.md T12)")
+    void testInstructorBillCannotDeactivateStudentThroughUpdate() throws Exception {
+        Map<String, Object> studentDto = new HashMap<>();
+        studentDto.put("username", "john");
+        studentDto.put("firstName", "John");
+        studentDto.put("lastName", "Smith");
+        studentDto.put("email", "j.smith@abc.edu");
+        studentDto.put("enabled", false);
+
+        String json = this.jsonMapper.writeValueAsString(studentDto);
+
+        this.mockMvc.perform(put(this.baseUrl + "/students/4").contentType(MediaType.APPLICATION_JSON).content(json).accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.instructorBillToken))
+                .andExpect(jsonPath("$.flag").value(true))
+                .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
+                .andExpect(jsonPath("$.data.enabled").value(true))
+                .andExpect(jsonPath("$.data.deactivatedWeek").isEmpty());
+    }
+
+    @Test
     void testStudentJohnUpdatesAnotherStudentsInfo() throws Exception {
         Map<String, String> studentDto = new HashMap<>();
         studentDto.put("username", "eric");

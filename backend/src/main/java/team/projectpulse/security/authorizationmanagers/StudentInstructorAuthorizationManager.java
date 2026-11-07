@@ -13,7 +13,8 @@ import java.util.function.Supplier;
 
 /**
  * Guards reading one student's detailed peer evaluation results, private comments included, admitting only an instructor
- * of that student's course section.
+ * of that student's course section. Also combined with {@link StudentCourseAdminAuthorizationManager} to guard
+ * deactivating her.
  *
  * <p>Reads {@code studentId} and delegates to {@link StudentSecurityService#isCurrentUserInstructorOfStudentSection}.
  */

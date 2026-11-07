@@ -5,6 +5,7 @@ import team.projectpulse.instructor.Instructor;
 import team.projectpulse.section.Section;
 import team.projectpulse.section.SectionRepository;
 import team.projectpulse.system.UserUtils;
+import team.projectpulse.team.Team;
 import team.projectpulse.user.MyUserPrincipal;
 import team.projectpulse.user.userinvitation.UserInvitationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,11 +24,15 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -45,6 +50,8 @@ class StudentServiceTest {
     PasswordEncoder passwordEncoder;
     @Mock
     UserUtils userUtils;
+    @Mock
+    Clock clock;
 
     @InjectMocks
     private StudentService studentService;
@@ -173,8 +180,49 @@ class StudentServiceTest {
         assertThat(result.getFirstName()).isEqualTo(update.getFirstName());
         assertThat(result.getLastName()).isEqualTo(update.getLastName());
         assertThat(result.getEmail()).isEqualTo(update.getEmail());
-//        assertThat(result.getRoles()).isEqualTo(update.getRoles());
-        assertThat(result.isEnabled()).isEqualTo(update.isEnabled());
+        // Deactivation has its own endpoint, so an update leaves the account active (stu.md T12)
+        assertThat(result.isEnabled()).isTrue();
+        assertThat(result.getDeactivatedOn()).isNull();
+    }
+
+    @Test
+    void testDeactivateStudent() {
+        // Given: John is active and on a team; the clock reads Monday, August 7, 2023 (stu.md T2)
+        Student john = this.students.get(0);
+        Team team = new Team("Team1", "Team 1 description", "https://www.team1.com");
+        team.addStudent(john);
+        Clock fixedClock = Clock.fixed(LocalDate.of(2023, 8, 7).atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        given(this.clock.instant()).willReturn(fixedClock.instant());
+        given(this.clock.getZone()).willReturn(fixedClock.getZone());
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.studentRepository.save(john)).willReturn(john);
+
+        // When
+        Student result = this.studentService.deactivateStudent(1);
+
+        // Then
+        assertThat(result.isEnabled()).isFalse();
+        assertThat(result.getDeactivatedOn()).isEqualTo(LocalDate.of(2023, 8, 7));
+        assertThat(result.getDeactivationWeek()).isEqualTo("2023-W32");
+        assertThat(result.getTeam()).isSameAs(team);
+        verify(this.studentRepository, times(1)).save(john);
+    }
+
+    @Test
+    void testDeactivateAlreadyDeactivatedStudent() {
+        // Given: John was deactivated earlier, on Wednesday, August 2, 2023 (extension 6a, stu.md T6)
+        Student john = this.students.get(0);
+        john.setEnabled(false);
+        john.setDeactivatedOn(LocalDate.of(2023, 8, 2));
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(1));
+
+        // Then
+        assertThat(thrown).isInstanceOf(IllegalArgumentException.class).hasMessage("This student is already deactivated.");
+        assertThat(john.getDeactivatedOn()).isEqualTo(LocalDate.of(2023, 8, 2));
+        verify(this.studentRepository, times(0)).save(any(Student.class));
     }
 
     @Test

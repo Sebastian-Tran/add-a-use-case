@@ -13,15 +13,6 @@
     <el-form-item label="Username:" prop="username">
       <el-input v-model="studentBeingEdited.username"></el-input>
     </el-form-item>
-    <el-form-item label="Status:" prop="enabled">
-      <el-switch
-        v-model="studentBeingEdited.enabled"
-        inline-prompt
-        active-text="Enabled"
-        inactive-text="Disabled"
-        style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
-      />
-    </el-form-item>
     <el-form-item label="First Name:" prop="firstName">
       <el-input v-model="studentBeingEdited.firstName"></el-input>
     </el-form-item>
@@ -35,6 +26,10 @@
       <el-input v-model="studentBeingEdited.teamName" disabled></el-input>
     </el-form-item>
     <div style="display: flex; justify-content: end">
+      <!-- Offered only while she is active (UC-STU-deactivate-student 3a) -->
+      <el-button v-if="studentBeingEdited.enabled" type="danger" plain @click="deactivate()">
+        Deactivate
+      </el-button>
       <el-button @click="$emit('close-dialog')"> Cancel </el-button>
       <el-button type="primary" @click="updateExistingStudent()"> Confirm </el-button>
     </div>
@@ -42,14 +37,14 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Student } from '@/apis/student/types'
 import type { FormInstance } from 'element-plus'
-import { findStudentById, updateStudent } from '@/apis/student'
+import { deactivateStudent, findStudentById, updateStudent } from '@/apis/student'
 import { ref, onMounted } from 'vue'
 
 const { studentId } = defineProps(['studentId'])
-const emit = defineEmits(['close-dialog'])
+const emit = defineEmits(['close-dialog', 'student-deactivated'])
 
 // Note that the structure of the userData is NOT the same as the User interface since the roles are stored as an array
 const studentBeingEdited = ref<Student>({
@@ -74,7 +69,6 @@ const rules = {
       trigger: 'blur'
     }
   ],
-  enabled: [{ required: true, message: 'Please select the status of the user.', trigger: 'blur' }],
   firstName: [
     { required: true, message: 'Please provide the first name of the user.', trigger: 'blur' }
   ],
@@ -104,24 +98,61 @@ onMounted(() => {
   loadStudent(studentId) // Load the artifact to be edited
 })
 
+async function deactivate() {
+  const name = `${studentBeingEdited.value.firstName} ${studentBeingEdited.value.lastName}`
+  try {
+    await ElMessageBox.confirm(DEACTIVATION_WARNING, `Deactivate ${name}?`, {
+      confirmButtonText: 'Deactivate',
+      cancelButtonText: 'Cancel',
+      type: 'warning',
+      dangerouslyUseHTMLString: true // A constant, no user input
+    })
+  } catch {
+    return // Cancelled: no request, the details stay open (5a)
+  }
+
+  try {
+    const result = await deactivateStudent(studentBeingEdited.value.id as number)
+    studentBeingEdited.value.enabled = result.data.enabled
+    ElMessage.success(`${name} has been deactivated.`)
+    emit('student-deactivated')
+  } catch {
+    // Already deactivated elsewhere (6a): the shared request instance has shown the message. Reload so the
+    // details stop offering Deactivate.
+    await loadStudent(studentBeingEdited.value.id as number)
+  }
+}
+
 async function updateExistingStudent() {
   await studentForm.value!.validate() // Validate the form
 
   const updatedStudent: Student = {
     id: studentBeingEdited.value.id,
     username: studentBeingEdited.value.username,
-    enabled: studentBeingEdited.value.enabled,
     firstName: studentBeingEdited.value.firstName,
     lastName: studentBeingEdited.value.lastName,
     email: studentBeingEdited.value.email
   }
-  console.log(updatedStudent)
   // Call the API to update the user
   await updateStudent(updatedStudent)
 
   ElMessage.success('Student updated successfully')
   emit('close-dialog')
 }
+</script>
+
+<script lang="ts">
+// The consequences shown before confirming (UC-STU-deactivate-student step 4, BR-student-lifecycle)
+const DEACTIVATION_WARNING = `
+  <p>Deactivating this student means:</p>
+  <ul>
+    <li>She can no longer log in or submit weekly activity reports and peer evaluations, effective immediately.</li>
+    <li>She stays on her team, and her previously submitted work is kept.</li>
+    <li>Her teammates may still evaluate her for last week until its submission window closes, but not for this week or later.</li>
+    <li>The course section's peer evaluation report shows her only for the weeks before this week.</li>
+    <li>She no longer receives submission reminders.</li>
+  </ul>
+  <p>She can be reactivated later. This is not deletion.</p>`
 </script>
 
 <style scoped lang="scss"></style>

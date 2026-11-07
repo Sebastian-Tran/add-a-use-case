@@ -25,6 +25,8 @@ classDiagram
     -Team team
     -LocalDate deactivatedOn
     +isEnabled() boolean
+    +getDeactivationWeek() String
+    +isInactiveIn(week) boolean
   }
   class StudentSecurityService {
     +isCurrentUserInstructorOfStudentSection(studentId) boolean
@@ -43,7 +45,7 @@ classDiagram
   StudentService --> Student
   StudentInstructorAuthorizationManager --> StudentSecurityService
   StudentCourseAdminAuthorizationManager --> StudentSecurityService
-  EvaluationService ..> Student : reads enabled, deactivatedOn
+  EvaluationService ..> Student : isInactiveIn(week)
   ActiveAccountJwtValidator ..> Student : reads enabled (via PeerEvaluationUser)
 ```
 
@@ -119,14 +121,14 @@ sequenceDiagram
 - **Deactivating an already-deactivated student is an error and keeps the original date.** Rejected: idempotent success, because overwriting the date would shift which weeks she appears in, and an error tells a stale page that it is stale.
 - **Authorization is a route rule (403); "already deactivated" is a service check.** The service check names the violation, following the OI-49 precedent for domain preconditions.
 
-- **Weeks and the date.** `deactivatedOn = LocalDate.now(clock)`, with the injected `Clock` in `app.timezone` like every other week computation. Her **deactivation week** is `WeekKeys.of(deactivatedOn)`, an ISO week starting on Monday, and week keys compare as strings within the `YYYY-Www` format. Every rule uses the same comparison, `week >= deactivationWeek`: the report omits her for that `week`, and an evaluation of her for that `week` is refused. Because the guard compares the **evaluated** week, not today, teammates can still evaluate her for the week before her deactivation while its window is open (BR-student-lifecycle). Rejected: blocking every evaluation of her from the date on, because the week before her deactivation would then be left half-evaluated. BR-submission-owed still drops her from who is owed at once, so a teammate who skips her that last week is not reminded. That follows the rule as written and is accepted.
+- **Weeks and the date.** `deactivatedOn = LocalDate.now(clock)`, with the injected `Clock` in `app.timezone` like every other week computation. Her **deactivation week** is `WeekKeys.of(deactivatedOn)`, an ISO week starting on Monday, and week keys compare as strings within the `YYYY-Www` format. Every rule uses the same comparison, `week >= deactivationWeek`, written once as `Student.isInactiveIn(week)`: the report omits her for that `week`, and an evaluation of her for that `week` is refused. Because the guard compares the **evaluated** week, not today, teammates can still evaluate her for the week before her deactivation while its window is open (BR-student-lifecycle). Rejected: blocking every evaluation of her from the date on, because the week before her deactivation would then be left half-evaluated. BR-submission-owed still drops her from who is owed at once, so a teammate who skips her that last week is not reminded. That follows the rule as written and is accepted.
 - **Course admin resolution.** `isCurrentUserCourseAdminOfStudentCourse` compares the caller's id with `student.section.course.courseAdmin.id`. It is not a role check, so the `admin > instructor` role hierarchy cannot admit the course admin of a different course. `StudentInstructorAuthorizationManager` already compares ids for the same reason.
 - **What the user sees on refusal.** On 6a the SPA shows the `Result` message as an error toast and keeps the details open. On 6b the shared Axios instance's 403 handling applies, and its page reveals nothing about whether the student exists. A fresh login by a deactivated student gets the existing `AccountStatusException` response, unchanged.
 - **Edge cases that need no special code:** a student on no team may be deactivated, and her team simply stays null. Two simultaneous deactivations: the second meets 6a or writes the same date, so last write wins and no `@Version` is needed. The migration takes the next free Flyway number (V7 at the time of design).
 
 ## **Data model**
 
-Delta to the SRS Business Domain Model: `student.deactivated_on DATE NULL` (`V7__student_deactivated_on.sql`). It is null for every active student. A student disabled before this migration also keeps null, so she appears in the report for every week.
+Delta to the SRS Business Domain Model: `Student.deactivatedOn`, stored as `peer_evaluation_user.deactivated_on DATE NULL` (`V7__student_deactivated_on.sql`), because students and instructors share that table through single-table inheritance; only `Student` maps it. It is null for every active student and every instructor. A student disabled before this migration also keeps null, so she appears in the report for every week.
 
 ## **Tests**
 

@@ -11,6 +11,7 @@ export interface Student {
   sectionName?: string
   teamId?: number
   teamName?: string
+  deactivatedWeek?: string | null // Her deactivation week, e.g. '2023-W33', or null while she is active
 }
 
 export interface PaginationParams {
@@ -90,6 +91,13 @@ export interface RegistrationParams {
 }
 
 export interface UpdateStudentResponse {
+  flag: boolean
+  code: number
+  message: string
+  data: Student
+}
+
+export interface DeactivateStudentResponse {
   flag: boolean
   code: number
   message: string

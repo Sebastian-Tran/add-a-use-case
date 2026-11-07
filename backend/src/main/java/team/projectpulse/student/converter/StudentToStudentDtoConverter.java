@@ -22,7 +22,8 @@ public class StudentToStudentDtoConverter implements Converter<Student, StudentD
                 student.getSection().getSectionId(),
                 student.getSection().getSectionName(),
                 student.getTeam() == null ? null : student.getTeam().getTeamId(),
-                student.getTeam() == null ? null : student.getTeam().getTeamName()
+                student.getTeam() == null ? null : student.getTeam().getTeamName(),
+                student.getDeactivationWeek()
         );
     }
 
